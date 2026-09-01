@@ -581,6 +581,10 @@
           <span>⚙ Sincronização com Google Sheets</span>
           <span class="stage-pill" style="background:${state.syncConfig.url ? 'var(--ok)' : 'var(--ink-soft)'}">${state.syncConfig.url ? 'Configurada' : 'Não configurada'}</span>
         </div>
+        <div class="link-row" id="btn-baixar-servidor" style="background:white;border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;margin-bottom:4px;">
+          <span>⬇ Buscar lotes da planilha</span>
+          <span style="font-size:11px;color:var(--ink-soft);">Trazer de outros aparelhos</span>
+        </div>
         ${state.user.role==='admin' ? `
         <div class="link-row" id="btn-admin-colab" style="background:white;border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;margin-bottom:4px;">
           <span>👤 Gerenciar colaboradores</span>
@@ -591,6 +595,13 @@
       </div>`;
     wireTopbar();
     shell.querySelector('#btn-sync-settings').onclick = openSyncSettings;
+    shell.querySelector('#btn-baixar-servidor').onclick = async ()=>{
+      toast('Buscando lotes da planilha...');
+      const erro = await baixarDoServidor();
+      if(erro) toast('Falha: ' + erro);
+      else toast('Lotes atualizados');
+      render();
+    };
     const btnAdminColab = shell.querySelector('#btn-admin-colab');
     if(btnAdminColab) btnAdminColab.onclick = openAdminColaboradores;
     const listEl = shell.querySelector('#lote-list');
@@ -1500,6 +1511,32 @@
     }, 60);
   }
 
+  async function baixarDoServidor(){
+    if(!state.syncConfig.url) return 'Sincronização não configurada';
+    try{
+      const resp = await fetch(state.syncConfig.url + '?listarLotes=1');
+      const data = await resp.json();
+      if(!data.ok || !Array.isArray(data.lotes)) return (data && data.erro) || 'Resposta inesperada do servidor';
+      let mudou = false;
+      data.lotes.forEach(remoto=>{
+        const local = state.lotes[remoto.id];
+        // Só substituímos a versão local se ela já estiver sincronizada (sem edições pendentes) —
+        // assim nunca perdemos um lançamento que ainda não foi enviado para a planilha.
+        if(!local || local.syncStatus==='ok'){
+          state.lotes[remoto.id] = remoto;
+          mudou = true;
+        }
+      });
+      if(mudou){
+        await saveLotesLocal();
+        if(state.route==='dashboard') render();
+      }
+      return null;
+    }catch(err){
+      return 'Falha ao buscar dados da planilha: ' + (err && err.message ? err.message : err);
+    }
+  }
+
   async function boot(){
     await loadUser(); await loadLotes(); await loadSyncConfig(); await loadAppConfig();
     if(!state.syncConfig.url){
@@ -1508,6 +1545,7 @@
     }
     state.route = state.user ? 'dashboard' : 'login';
     render();
+    await baixarDoServidor();
     syncPendentes();
   }
   boot();
