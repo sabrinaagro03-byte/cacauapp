@@ -1,0 +1,16 @@
+{
+  "name": "Controle de Qualidade do Cacau",
+  "short_name": "Cacau QC",
+  "description": "Registro de colheita, fermentação, secagem e classificação do cacau, com rastreabilidade por QR Code.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F6F0E4",
+  "theme_color": "#241610",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

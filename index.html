@@ -1,3 +1,9 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Controle de Qualidade do Cacau</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -161,6 +167,8 @@
   #pdf-report h2{font-family:'Fraunces',serif;}
   #pdf-label{position:fixed;left:0;top:0;z-index:-1000;width:320px;background:white;color:#241610;font-family:'Inter',sans-serif;}
 </style>
+</head>
+<body>
 
 <div id="cacau-root">
   <div class="app-shell" id="app-shell"></div>
@@ -324,7 +332,17 @@
       else { lote.syncErro = null; }
     }
     await saveLotesLocal();
-    if(state.route==='dashboard' || state.route==='lote') render();
+    // Importante: nunca damos um render() completo aqui quando o usuário está dentro de um lote —
+    // isso reconstruiria a tela inteira e apagaria qualquer texto que a pessoa esteja digitando
+    // num campo (ex: uma temperatura ainda não salva). Só atualizamos o selinho de status,
+    // sem tocar no resto da tela.
+    if(state.route==='dashboard'){
+      render();
+    } else if(state.route==='lote'){
+      const badge = document.getElementById('lote-sync-badge');
+      const lote = state.lotes[state.currentLoteId];
+      if(badge && lote) badge.innerHTML = syncBadgeHTML(lote);
+    }
     return ultimoErro;
   }
 
@@ -639,7 +657,7 @@
       <div class="lote-header">
         <div class="talhao">Talhão ${lote.talhao} · ${lote.colheitas.length} lanç. colheita · ${lote.fermentacoes.length} fermentação(ões) · ${lote.secagens.length} secagem(ns)</div>
         <div style="display:flex;align-items:center;justify-content:space-between;margin-top:8px;">
-          ${syncBadgeHTML(lote)}
+          <div id="lote-sync-badge">${syncBadgeHTML(lote)}</div>
           <button id="btn-sync-now" style="background:none;border:1px solid rgba(255,255,255,0.25);color:var(--paper);font-size:11px;padding:5px 10px;border-radius:99px;cursor:pointer;">Sincronizar agora</button>
         </div>
         <div class="tabs" id="tabs"></div>
@@ -1495,3 +1513,6 @@
   boot();
 })();
 </script>
+
+</body>
+</html>
