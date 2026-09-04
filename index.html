@@ -9,6 +9,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/icon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="icons/icon-16.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/icon-180.png">
 <meta name="theme-color" content="#241610">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -180,6 +183,11 @@
 
 <script>
 (function(){
+  // Sempre que eu enviar uma atualização, esse número muda — é assim que dá pra
+  // confirmar visualmente (na tela de login e no painel) se a versão publicada
+  // é realmente a mais recente.
+  const APP_VERSION = 'v1.9 · 01/09/2026';
+
   const COLABORADORES = [
     {id:'ginaldo', nome:'Ginaldo'},
     {id:'marcondes', nome:'Marcondes'},
@@ -407,6 +415,7 @@
         <div class="colab-list" id="colab-list"></div>
         <button id="btn-admin-login" style="margin-top:26px;background:none;border:none;color:#cbb79c;font-size:12.5px;text-decoration:underline;cursor:pointer;">Entrar como Administrador</button>
         <button id="btn-fullscreen-login" style="margin-top:14px;background:none;border:none;color:#8a7a68;font-size:11.5px;cursor:pointer;">⛶ Tela cheia</button>
+        <div style="margin-top:28px;text-align:center;color:#6b5c4c;font-size:10.5px;">${APP_VERSION}</div>
       </div>`;
     const list = shell.querySelector('#colab-list');
     state.colaboradores.forEach(c=>{
@@ -592,6 +601,7 @@
         </div>` : ''}
         <div class="section-title">Lotes</div>
         <div id="lote-list"></div>
+        <div style="margin-top:24px;text-align:center;color:var(--ink-soft);font-size:10.5px;">${APP_VERSION}</div>
       </div>`;
     wireTopbar();
     shell.querySelector('#btn-sync-settings').onclick = openSyncSettings;

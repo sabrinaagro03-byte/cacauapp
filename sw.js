@@ -1,7 +1,12 @@
 // Service worker simples: guarda uma cópia do app para abrir mesmo sem internet
 // e é o que permite ao navegador oferecer "Instalar app" / "Adicionar à tela inicial".
-const CACHE_NAME = 'cacau-qc-v2';
-const APP_SHELL = ['./index.html', './manifest.json'];
+// Suba esse número (v3, v4...) sempre que publicar uma atualização importante —
+// isso força o navegador a descartar o cache antigo e buscar os arquivos novos.
+const CACHE_NAME = 'cacau-qc-v3';
+const APP_SHELL = [
+  './index.html', './manifest.json',
+  './icons/icon-192.png', './icons/icon-512.png',
+];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
