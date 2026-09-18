@@ -198,7 +198,7 @@
   // Sempre que eu enviar uma atualização, esse número muda — é assim que dá pra
   // confirmar visualmente (na tela de login e no painel) se a versão publicada
   // é realmente a mais recente.
-  const APP_VERSION = 'v1.11 · 18/09/2026';
+  const APP_VERSION = 'v1.12 · 18/09/2026';
 
   const COLABORADORES = [
     {id:'ginaldo', nome:'Ginaldo'},
@@ -542,6 +542,81 @@
   }
 
 
+  function openBackupModal(){
+    const qtdLotes = Object.keys(state.lotes).length;
+    openModal('Backup dos dados', `
+      <p style="font-size:13px;color:var(--ink-soft);margin-top:0;">
+        O backup salva um arquivo com <b>todos os ${qtdLotes} lote(s)</b> que estão neste aparelho.
+        Guarde esse arquivo em local seguro (e-mail, Google Drive, WhatsApp).
+        Se o celular for trocado, formatado ou tiver o cache limpo, dá para restaurar tudo por aqui.
+      </p>
+      <button class="btn btn-primary" id="bk-export">💾 Salvar backup em arquivo</button>
+      <div class="divider"></div>
+      <p style="font-size:13px;color:var(--ink-soft);">
+        Restaurar de um arquivo de backup. Lotes que já existirem aqui <b>não</b> são apagados —
+        apenas os que faltarem serão adicionados.
+      </p>
+      <button class="btn btn-secondary" id="bk-import">📂 Restaurar de um arquivo</button>
+      <input type="file" id="bk-file" accept="application/json,.json" style="display:none;">
+      <div id="bk-status" style="margin-top:12px;font-size:12.5px;color:var(--ink-soft);"></div>
+    `, (body)=>{
+      body.querySelector('#bk-export').onclick = ()=>{
+        try{
+          const payload = {
+            tipo: 'backup-cacau-qc',
+            versao: APP_VERSION,
+            geradoEm: new Date().toISOString(),
+            lotes: state.lotes,
+            colaboradores: state.colaboradores,
+          };
+          const blob = new Blob([JSON.stringify(payload)], {type:'application/json'});
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          const hoje = new Date().toISOString().slice(0,10);
+          a.href = url; a.download = `backup-cacau-${hoje}.json`;
+          document.body.appendChild(a); a.click(); document.body.removeChild(a);
+          setTimeout(()=> URL.revokeObjectURL(url), 2000);
+          body.querySelector('#bk-status').textContent = '✓ Backup gerado. Confira na pasta de downloads.';
+        }catch(err){
+          body.querySelector('#bk-status').textContent = '✕ Não foi possível gerar o backup: ' + err;
+        }
+      };
+
+      const fileInput = body.querySelector('#bk-file');
+      body.querySelector('#bk-import').onclick = ()=> fileInput.click();
+      fileInput.onchange = (e)=>{
+        const file = (e.target.files||[])[0];
+        if(!file) return;
+        const reader = new FileReader();
+        reader.onload = async (ev)=>{
+          try{
+            const dados = JSON.parse(ev.target.result);
+            if(!dados || !dados.lotes) throw new Error('Arquivo não parece ser um backup do app.');
+            let adicionados = 0;
+            Object.values(dados.lotes).forEach(l=>{
+              if(l && l.id && !state.lotes[l.id]){ state.lotes[l.id] = l; adicionados++; }
+            });
+            if(Array.isArray(dados.colaboradores)){
+              dados.colaboradores.forEach(c=>{
+                if(c && c.nome && !state.colaboradores.some(x=>x.nome===c.nome)){
+                  state.colaboradores.push(c);
+                }
+              });
+              await saveAppConfig();
+            }
+            await saveLotesLocal();
+            body.querySelector('#bk-status').textContent = `✓ ${adicionados} lote(s) restaurado(s).`;
+            toast(`${adicionados} lote(s) restaurado(s)`);
+            render();
+          }catch(err){
+            body.querySelector('#bk-status').textContent = '✕ Erro ao ler o arquivo: ' + (err.message||err);
+          }
+        };
+        reader.readAsText(file);
+      };
+    });
+  }
+
   function openAdminColaboradores(){
     openModal('Gerenciar colaboradores', `
       <div id="colab-manage-list"></div>
@@ -607,6 +682,10 @@
           <span>⬇ Buscar lotes da planilha</span>
           <span style="font-size:11px;color:var(--ink-soft);">Trazer de outros aparelhos</span>
         </div>
+        <div class="link-row" id="btn-backup" style="background:white;border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;margin-bottom:4px;">
+          <span>💾 Backup dos dados</span>
+          <span style="font-size:11px;color:var(--ink-soft);">Salvar / restaurar arquivo</span>
+        </div>
         ${state.user.role==='admin' ? `
         <div class="link-row" id="btn-admin-colab" style="background:white;border:1px solid var(--line);border-radius:var(--radius);padding:13px 14px;margin-bottom:4px;">
           <span>👤 Gerenciar colaboradores</span>
@@ -624,6 +703,7 @@
       else toast('Lotes atualizados');
       render();
     };
+    shell.querySelector('#btn-backup').onclick = openBackupModal;
     const btnAdminColab = shell.querySelector('#btn-admin-colab');
     if(btnAdminColab) btnAdminColab.onclick = openAdminColaboradores;
     const listEl = shell.querySelector('#lote-list');
@@ -1574,7 +1654,20 @@
     }
     state.route = state.user ? 'dashboard' : 'login';
     render();
-    await baixarDoServidor(false);
+
+    // Se o aparelho está sem nenhum lote (app novo, cache limpo, celular trocado),
+    // buscamos tudo da planilha e avisamos o que foi recuperado.
+    const estavaVazio = Object.keys(state.lotes).length === 0;
+    const erro = await baixarDoServidor(false);
+    if(estavaVazio){
+      const qtd = Object.keys(state.lotes).length;
+      if(qtd > 0){
+        render();
+        toast(`${qtd} lote(s) recuperado(s) da planilha`);
+      } else if(erro){
+        toast('Não foi possível buscar da planilha: ' + erro);
+      }
+    }
     syncPendentes();
   }
   boot();
