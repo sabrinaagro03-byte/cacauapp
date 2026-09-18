@@ -22,7 +22,19 @@
   // isso é o que permite "Adicionar à tela inicial" funcionar como um app instalável.
   if ('serviceWorker' in navigator && (location.protocol==='http:' || location.protocol==='https:')) {
     window.addEventListener('load', ()=>{
-      navigator.serviceWorker.register('sw.js').catch(()=>{ /* sem sw.js hospedado junto, ignora */ });
+      navigator.serviceWorker.register('sw.js').then((reg)=>{
+        // Procura por atualizações assim que o app abre.
+        reg.update().catch(()=>{});
+      }).catch(()=>{ /* sem sw.js hospedado junto, ignora */ });
+
+      // Quando uma versão nova do app assume o controle, recarrega a tela uma única vez
+      // para que a atualização apareça na hora, sem precisar limpar cache no celular.
+      let jaRecarregou = false;
+      navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+        if (jaRecarregou) return;
+        jaRecarregou = true;
+        window.location.reload();
+      });
     });
   }
 </script>
@@ -115,7 +127,7 @@
   .photo-remove{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--bark);color:white;border:none;font-size:12px;line-height:1;cursor:pointer;}
   .photo-add{width:72px;height:72px;border-radius:8px;border:1.5px dashed var(--ink-soft);display:flex;align-items:center;justify-content:center;color:var(--ink-soft);cursor:pointer;background:none;font-size:22px;}
 
-  .lote-header{background:var(--bark);color:var(--paper);padding:18px 18px 20px;position:sticky;top:53px;z-index:15;}
+  .lote-header{background:var(--bark);color:var(--paper);padding:18px 18px 20px;position:sticky;top:71px;z-index:15;}
   .lote-header .id{font-family:'Fraunces',serif;font-size:22px;font-weight:700;}
   .lote-header .talhao{font-size:12.5px;color:#cbb79c;margin-top:2px;}
   .tabs{display:flex;gap:6px;margin-top:16px;overflow-x:auto;padding-bottom:2px;}
@@ -186,7 +198,7 @@
   // Sempre que eu enviar uma atualização, esse número muda — é assim que dá pra
   // confirmar visualmente (na tela de login e no painel) se a versão publicada
   // é realmente a mais recente.
-  const APP_VERSION = 'v1.10 · 11/09/2026';
+  const APP_VERSION = 'v1.11 · 18/09/2026';
 
   const COLABORADORES = [
     {id:'ginaldo', nome:'Ginaldo'},
@@ -405,6 +417,7 @@
   function renderLogin(){
     shell.innerHTML = `
       <div class="login-wrap">
+        <div style="position:absolute;top:14px;left:0;right:0;text-align:center;color:#8a7a68;font-size:11px;font-weight:600;">${APP_VERSION}</div>
         <svg class="pod-mark-big" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
           <path d="M12 2C7 4 4 9 4 14c0 5 3.5 8 8 8s8-3 8-8c0-5-3-10-8-12Z" fill="#BD5A21"/>
           <path d="M12 4.5c1 3 1 12.5 0 15.5M8.5 8c1.5 1 5.5 1 7 0M8 12.5c1.7 1 6.3 1 8 0M8.5 17c1.5 1 5.5 1 7 0" stroke="#241610" stroke-width="1.1" stroke-linecap="round"/>
@@ -415,7 +428,6 @@
         <div class="colab-list" id="colab-list"></div>
         <button id="btn-admin-login" style="margin-top:26px;background:none;border:none;color:#cbb79c;font-size:12.5px;text-decoration:underline;cursor:pointer;">Entrar como Administrador</button>
         <button id="btn-fullscreen-login" style="margin-top:14px;background:none;border:none;color:#8a7a68;font-size:11.5px;cursor:pointer;">⛶ Tela cheia</button>
-        <div style="margin-top:28px;text-align:center;color:#6b5c4c;font-size:10.5px;">${APP_VERSION}</div>
       </div>`;
     const list = shell.querySelector('#colab-list');
     state.colaboradores.forEach(c=>{
@@ -453,7 +465,8 @@
   }
 
   function topbarHTML({back, title, sub}){
-    return `<div class="topbar">
+    return `<div style="background:var(--bark);color:#a08f7a;font-size:10.5px;text-align:center;padding:4px 0 0;font-weight:600;letter-spacing:.3px;">${APP_VERSION}</div>
+      <div class="topbar" style="top:18px;">
         ${back ? `<button class="back-btn" id="btn-back">‹ Voltar</button>` : `<div class="brand">${svgPod()}<div><h1>${title}</h1>${sub?`<div class="sub">${sub}</div>`:''}</div></div>`}
         ${back ? `<h1 style="font-size:16px;flex:1;text-align:center;">${title}</h1>` : ''}
         <div style="display:flex;align-items:center;gap:8px;">
@@ -601,7 +614,6 @@
         </div>` : ''}
         <div class="section-title">Lotes</div>
         <div id="lote-list"></div>
-        <div style="margin-top:24px;text-align:center;color:var(--ink-soft);font-size:10.5px;">${APP_VERSION}</div>
       </div>`;
     wireTopbar();
     shell.querySelector('#btn-sync-settings').onclick = openSyncSettings;
