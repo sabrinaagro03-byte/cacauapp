@@ -186,7 +186,7 @@
   // Sempre que eu enviar uma atualização, esse número muda — é assim que dá pra
   // confirmar visualmente (na tela de login e no painel) se a versão publicada
   // é realmente a mais recente.
-  const APP_VERSION = 'v1.9 · 01/09/2026';
+  const APP_VERSION = 'v1.10 · 11/09/2026';
 
   const COLABORADORES = [
     {id:'ginaldo', nome:'Ginaldo'},
@@ -607,7 +607,7 @@
     shell.querySelector('#btn-sync-settings').onclick = openSyncSettings;
     shell.querySelector('#btn-baixar-servidor').onclick = async ()=>{
       toast('Buscando lotes da planilha...');
-      const erro = await baixarDoServidor();
+      const erro = await baixarDoServidor(true);
       if(erro) toast('Falha: ' + erro);
       else toast('Lotes atualizados');
       render();
@@ -1521,7 +1521,7 @@
     }, 60);
   }
 
-  async function baixarDoServidor(){
+  async function baixarDoServidor(forcarAtualizacao){
     if(!state.syncConfig.url) return 'Sincronização não configurada';
     try{
       const resp = await fetch(state.syncConfig.url + '?listarLotes=1');
@@ -1530,9 +1530,16 @@
       let mudou = false;
       data.lotes.forEach(remoto=>{
         const local = state.lotes[remoto.id];
-        // Só substituímos a versão local se ela já estiver sincronizada (sem edições pendentes) —
-        // assim nunca perdemos um lançamento que ainda não foi enviado para a planilha.
-        if(!local || local.syncStatus==='ok'){
+        // Por padrão (ao abrir o app), só TRAZEMOS lotes que ainda não existem localmente —
+        // nunca sobrescrevemos um lote que você já tem no aparelho, mesmo que já esteja
+        // sincronizado. Isso evita que qualquer problema do lado da planilha apague o que
+        // já está funcionando aqui. Só quando você aperta "Buscar lotes da planilha" (ação
+        // explícita) é que aceitamos atualizar um lote já existente, e mesmo assim nunca
+        // um que tenha edição pendente de envio.
+        if(!local){
+          state.lotes[remoto.id] = remoto;
+          mudou = true;
+        } else if(forcarAtualizacao && local.syncStatus==='ok'){
           state.lotes[remoto.id] = remoto;
           mudou = true;
         }
@@ -1555,7 +1562,7 @@
     }
     state.route = state.user ? 'dashboard' : 'login';
     render();
-    await baixarDoServidor();
+    await baixarDoServidor(false);
     syncPendentes();
   }
   boot();
