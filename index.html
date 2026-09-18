@@ -198,7 +198,7 @@
   // Sempre que eu enviar uma atualização, esse número muda — é assim que dá pra
   // confirmar visualmente (na tela de login e no painel) se a versão publicada
   // é realmente a mais recente.
-  const APP_VERSION = 'v1.12 · 18/09/2026';
+  const APP_VERSION = 'v1.13 · 18/09/2026';
 
   const COLABORADORES = [
     {id:'ginaldo', nome:'Ginaldo'},
@@ -277,8 +277,46 @@
   function sum(arr, fn){ return arr.reduce((a,x)=> a + (parseFloat(fn(x))||0), 0); }
 
   // ---------- persistence ----------
+  // Converte qualquer forma de horário para "HH:mm". Protege contra o formato
+  // corrompido "1899-12-30T18:08:28.000Z" que o Google Sheets gerava.
+  function normalizarHora(valor){
+    if(valor === null || valor === undefined || valor === '') return '';
+    const s = String(valor).trim();
+    if(!s) return '';
+    const m = s.match(/^(\d{1,2}):(\d{2})/);
+    if(m) return ('0'+m[1]).slice(-2) + ':' + m[2];
+    if(s.indexOf('T') > 0){
+      const d = new Date(s);
+      if(!isNaN(d.getTime())){
+        return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      }
+    }
+    return '';
+  }
+  // Para temperatura/peso: se virou data por engano, devolve vazio.
+  function normalizarNumero(valor){
+    if(valor === null || valor === undefined || valor === '') return '';
+    const s = String(valor).trim();
+    if(s.indexOf('T') > 0 && s.indexOf('-') > 0) return '';
+    return valor;
+  }
+  // Limpa valores corrompidos que já estejam salvos no aparelho.
+  function sanearLotes(lotes){
+    Object.values(lotes || {}).forEach(l=>{
+      (l.fermentacoes||[]).forEach(f=>{
+        (f.temperaturas||[]).forEach(t=>{ t.hora = normalizarHora(t.hora); t.temp = normalizarNumero(t.temp); });
+        (f.viragens||[]).forEach(v=>{ v.hora = normalizarHora(v.hora); v.antes = normalizarNumero(v.antes); v.depois = normalizarNumero(v.depois); });
+        (f.pesagensMassa||[]).forEach(m=>{ m.hora = normalizarHora(m.hora); m.peso = normalizarNumero(m.peso); });
+      });
+      (l.secagens||[]).forEach(s=>{
+        (s.intermediarias||[]).forEach(m=>{ m.hora = normalizarHora(m.hora); m.peso = normalizarNumero(m.peso); });
+      });
+    });
+    return lotes;
+  }
+
   async function loadLotes(){
-    try{ const res = await storage.get('lotes-db', false); state.lotes = res && res.value ? JSON.parse(res.value) : {}; }
+    try{ const res = await storage.get('lotes-db', false); state.lotes = res && res.value ? sanearLotes(JSON.parse(res.value)) : {}; }
     catch(e){ state.lotes = {}; }
     state.loading = false;
   }
@@ -1620,6 +1658,7 @@
       const data = await resp.json();
       if(!data.ok || !Array.isArray(data.lotes)) return (data && data.erro) || 'Resposta inesperada do servidor';
       let mudou = false;
+      sanearLotes(Object.fromEntries(data.lotes.filter(l=>l&&l.id).map(l=>[l.id,l])));
       data.lotes.forEach(remoto=>{
         const local = state.lotes[remoto.id];
         // Por padrão (ao abrir o app), só TRAZEMOS lotes que ainda não existem localmente —
